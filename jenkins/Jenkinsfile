@@ -1,0 +1,61 @@
+pipeline {
+  agent any
+
+  environment {
+    SHA = "${env.GIT_COMMIT.take(7)}"
+    IMAGE_PORTFOLIO = "devsecops-portfolio:${SHA}"
+    IMAGE_API = "devsecops-api:${SHA}"
+  }
+
+  stages {
+    stage('Tests Frontend') {
+      steps {
+        sh 'cd portfolio/frontend && npm ci && npm test -- --ci'
+      }
+    }
+    stage('Tests API') {
+      steps {
+        sh 'cd portfolio/api && npm ci && npm test -- --ci'
+      }
+    }
+    stage('Build Images') {
+      steps {
+        sh "docker build -t ${IMAGE_PORTFOLIO} portfolio/frontend"
+        sh "docker build -t ${IMAGE_API} portfolio/api"
+        sh "docker images | grep devsecops"
+      }
+    }
+    stage('Secret Scan (Gitleaks)') {
+      steps {
+        sh 'gitleaks detect --source . --report-format json --report-path gitleaks-report.json'
+      }
+    }
+    stage('SAST (Semgrep)') {
+      steps {
+        sh 'semgrep scan --config auto --error portfolio/'
+      }
+    }
+    stage('npm audit') {
+      steps {
+        sh 'cd portfolio/api && npm audit --audit-level=critical'
+        sh 'cd portfolio/frontend && npm audit --audit-level=critical'
+      }
+    }
+    stage('OWASP Dependency-Check') {
+      steps {
+        sh 'dependency-check --project devsecops --scan ./portfolio/api --format HTML --out dependency-check-report.html'
+      }
+    }
+    stage('Trivy Scan') {
+      steps {
+        sh "trivy image --exit-code 1 --severity CRITICAL ${IMAGE_API}"
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'gitleaks-report.json, dependency-check-report.html', allowEmptyArchive: true
+    }
+  }
+}

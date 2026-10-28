@@ -1,0 +1,16 @@
+---
+- name: Vérifier l'environnement Vagrant
+  hosts: all
+  become: yes
+  tasks:
+    - name: Vérifier Docker dans le conteneur
+      ansible.builtin.command: docker --version
+      changed_when: false
+      register: docker_version
+      failed_when: false
+
+    - name: Afficher le résultat
+      ansible.builtin.debug:
+        msg: >-
+          {{ docker_version.stdout if docker_version.stdout | length > 0
+             else 'Docker absent dans ce conteneur (attendu : provider Docker, pas de Docker-in-Docker)' }}

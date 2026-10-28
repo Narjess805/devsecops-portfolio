@@ -1,0 +1,44 @@
+---
+# 1) Réutilisation du playbook Docker de l'activité 3 (Q28)
+- import_playbook: install_docker.yml
+
+# 2) Déploiement du Portfolio avec Docker Compose
+- name: Déployer le DevSecOps Portfolio avec Docker Compose
+  hosts: ubuntu_servers
+  become: yes
+  tasks:
+    - name: Créer le répertoire du projet
+      ansible.builtin.file:
+        path: /opt/portfolio
+        state: directory
+        mode: '0755'
+
+    - name: Copier les fichiers du projet
+      ansible.builtin.copy:
+        src: portfolio/
+        dest: /opt/portfolio/
+        mode: preserve
+
+    - name: Lancer docker compose up
+      community.docker.docker_compose_v2:
+        project_src: /opt/portfolio
+        state: present
+        recreate: always
+
+    - name: Vérifier que le Portfolio répond
+      ansible.builtin.uri:
+        url: http://localhost:3000
+        status_code: 200
+      register: result
+      retries: 10
+      delay: 3
+      until: result.status == 200
+
+    - name: Vérifier que l'API répond
+      ansible.builtin.uri:
+        url: http://localhost:3001/api/health
+        status_code: 200
+      register: api_result
+      retries: 10
+      delay: 3
+      until: api_result.status == 200

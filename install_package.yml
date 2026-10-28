@@ -1,0 +1,24 @@
+---
+- name: Installer des packages Linux (git et curl)
+  hosts: ubuntu_servers
+  become: yes
+  vars:
+    packages:
+      - git
+      - curl
+  tasks:
+    - name: Mettre à jour le cache APT
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    - name: Installer les packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+    - name: Vérifier la version de git
+      command: git --version
+      register: git_version
+      changed_when: false
+    - name: Afficher la version de git
+      debug:
+        msg: "Git installé : {{ git_version.stdout }}"
