@@ -49,9 +49,27 @@ Ce projet vise un objectif simple : qu'une seule commande, `vagrant up`, produis
 
 ## Architecture
 
-![Architecture](captures/architecture.png)
+```mermaid
+flowchart LR
+    U[Navigateur] -->|:3000| F[Next.js]
+    F -->|POST /api/contact| A[Express :3001]
+    A -->|SQL paramétré| D[(PostgreSQL)]
+    subgraph API sécurisée
+      A --- Z[Zod]
+      A --- H[Helmet]
+      A --- R[Rate limiting]
+      A --- E[Erreurs centralisées]
+    end
+```
 
-![Pipeline Jenkins](captures/pipeline-jenkins.png)
+```mermaid
+flowchart LR
+    G[Git push] --> J[Jenkins]
+    J --> T[Tests] --> B[Build des images] --> S[Gitleaks, Semgrep, npm audit, Dependency-Check, Trivy]
+    S --> C{Critique ou secret ?}
+    C -->|non| V[Pipeline vert]
+    C -->|oui| X[Pipeline en échec]
+```
 
 ## Stack technique
 
@@ -172,7 +190,7 @@ vagrant up --provider=docker
 
 Le provisionnement Ansible est rejoué automatiquement et le Portfolio est redéployé sans intervention manuelle.
 
-![Destroy puis up](captures/45-vagrant-destroy-up.png)
+![Destroy puis up](captures/24-vagrant-destroy-up.png)
 
 ---
 
@@ -196,7 +214,7 @@ curl -X POST http://192.168.56.10:3001/api/contact \
 
 Le formulaire de la page d'accueil envoie ses données avec `fetch` vers `POST /api/contact`. Le middleware `cors` est activé côté Express. Le formulaire affiche un message de succès, d'erreur de validation ou de limite atteinte (429).
 
-![Envoi du formulaire](captures/47-formulaire-envoi.png)
+![Envoi du formulaire](captures/25-formulaire-envoi.png)
 
 ### Q48 – Validation stricte avec Zod
 
@@ -320,7 +338,9 @@ Le pipeline `jenkins/Jenkinsfile` s'exécute sur le dépôt Git.
 
 Le pipeline lance les tests, construit les images `devsecops-portfolio` et `devsecops-api`, puis les tague avec le SHA du commit (`${env.GIT_COMMIT.take(7)}`), par exemple `devsecops-api:a1b2c3d`.
 
-![Build des images](captures/62-jenkins-build-images.png)
+![Build des images (1)](captures/19-jenkins-build-images.png)
+
+![Build des images (2)](captures/20-jenkins-build-images.png)
 
 ### Q64-68 – Scans de sécurité
 
@@ -338,7 +358,7 @@ Résultat de `npm audit` :
 
 Exemple de dépendance vulnérable détectée par Dependency-Check :
 
-![Dependency-Check](captures/67-dependency-check.png)
+![Dependency-Check](captures/21-dependency-check.png)
 
 ### Q69 – Échec du pipeline
 
@@ -346,11 +366,11 @@ Le pipeline échoue si un secret est détecté ou si une vulnérabilité critiqu
 
 **Pipeline réussi :**
 
-![Pipeline réussi](captures/69-pipeline-succes.png)
+![Pipeline réussi](captures/23-pipeline-succes.png)
 
 **Pipeline en échec :**
 
-![Pipeline en échec](captures/69-pipeline-echec.png)
+![Pipeline en échec](captures/22-pipeline-echec.png)
 
 ---
 
