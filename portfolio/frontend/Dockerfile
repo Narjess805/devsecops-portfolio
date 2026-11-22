@@ -17,12 +17,15 @@ FROM node:20-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV HOSTNAME="0.0.0.0"
-ENV PORT=3000
 
+# Copie des éléments nécessaires générés par le build
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
+
+# Sécurité : on n'exécute pas en root
+USER node
 
 CMD ["node", "server.js"]
