@@ -99,32 +99,32 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      
       - name: Build API image
         run: docker build -t portfolio-api:${{ github.sha }} portfolio/api
+      
       - name: Build Frontend image
         run: docker build -t portfolio-frontend:${{ github.sha }} portfolio/frontend
+      
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.50.1
+      
       - name: Trivy scan API
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2
-        with:
-          image-ref: portfolio-api:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-api.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+        run: |
+          trivy image --format sarif --output trivy-api.sarif --severity CRITICAL,HIGH --exit-code 1 portfolio-api:${{ github.sha }}
+      
       - name: Trivy scan Frontend
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2
-        with:
-          image-ref: portfolio-frontend:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-frontend.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+        run: |
+          trivy image --format sarif --output trivy-frontend.sarif --severity CRITICAL,HIGH --exit-code 1 portfolio-frontend:${{ github.sha }}
+      
       - name: Upload Trivy API results
         if: always()
         uses: github/codeql-action/upload-sarif@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d
         with:
           sarif_file: 'trivy-api.sarif'
           category: 'trivy-api'
+      
       - name: Upload Trivy Frontend results
         if: always()
         uses: github/codeql-action/upload-sarif@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d
