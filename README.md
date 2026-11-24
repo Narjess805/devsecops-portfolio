@@ -402,3 +402,4 @@ Le pipeline échoue si un secret est détecté ou si une vulnérabilité critiqu
 - HTTPS avec un reverse proxy devant le Portfolio et l'API
 # test
 # Test release
+# test
