@@ -403,3 +403,4 @@ Le pipeline échoue si un secret est détecté ou si une vulnérabilité critiqu
 # test
 # Test release
 # test
+# Test release
