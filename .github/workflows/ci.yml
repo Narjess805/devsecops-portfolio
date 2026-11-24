@@ -108,7 +108,7 @@ jobs:
       
       - name: Install Trivy
         run: |
-          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.50.1/trivy_0.50.1_Linux-64bit.tar.gz | tar -xzv -C /usr/local/bin trivy
+          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz | tar -xzv -C /usr/local/bin trivy
       
       - name: Trivy scan API
         run: |
