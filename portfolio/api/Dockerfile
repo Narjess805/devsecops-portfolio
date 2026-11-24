@@ -6,7 +6,8 @@ RUN npm ci
 
 # docker build --target test : image avec jest et supertest
 FROM deps AS test
-COPY . .
+COPY --chown=node:node . .
+USER node
 CMD ["npm", "test"]
 
 FROM node:20-alpine AS prod-deps
