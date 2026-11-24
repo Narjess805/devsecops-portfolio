@@ -26,3 +26,7 @@ private_key
 .env
 .env.*
 !.env.example
+
+# Clés Cosign
+cosign.key
+*.key
