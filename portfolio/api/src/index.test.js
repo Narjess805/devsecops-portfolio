@@ -4,7 +4,7 @@ const app = require('./index');
 test('POST /api/contact valide → 200', async () => {
   const res = await request(app).post('/api/contact')
     .send({ name: 'Alice', email: 'a@b.com', message: 'Hello' });
-  expect(res.statusCode).toBe(200);
+  expect(res.statusCode).toBe(999);
 });
 
 test('POST /api/contact invalide → 400', async () => {
