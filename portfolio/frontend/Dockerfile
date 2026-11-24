@@ -1,20 +1,33 @@
 FROM node:20-alpine AS builder
+
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install
+RUN npm ci
+
 COPY . .
 
-# Lignes à ajouter pour Next.js
-ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_API_URL=/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 
 FROM node:20-alpine
+
 WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Créer le dossier public s'il n'existe pas
+RUN mkdir -p public
+
+# Copie des éléments générés par le build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
 EXPOSE 3000
-ENV HOSTNAME="0.0.0.0"
-ENV PORT=3000
+
+# Sécurité : on n'exécute pas en root
+USER node
+
 CMD ["node", "server.js"]
