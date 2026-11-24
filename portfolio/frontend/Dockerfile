@@ -18,8 +18,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copie des éléments nécessaires générés par le build
-COPY --from=builder /app/public ./public
+# Créer le dossier public s'il n'existe pas
+RUN mkdir -p public
+
+# Copie des éléments générés par le build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
