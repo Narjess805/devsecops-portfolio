@@ -120,6 +120,7 @@ jobs:
       
       - name: Upload Trivy API results
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d
         with:
           sarif_file: 'trivy-api.sarif'
@@ -127,6 +128,7 @@ jobs:
       
       - name: Upload Trivy Frontend results
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@d2aacf54c2fbc910db8d7ec338fdb54ea48c692d
         with:
           sarif_file: 'trivy-frontend.sarif'
