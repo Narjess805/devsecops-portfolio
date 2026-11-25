@@ -1,0 +1,39 @@
+name: Publish Harbor
+
+# Après un CI réussi sur main : copie des images signées de GHCR vers Harbor (runner de la VM).
+on:
+  workflow_run:
+    workflows: ["CI DevSecOps"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harbor:
+    name: Copie vers Harbor
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, harbor]
+    env:
+      HARBOR_HOST: ${{ vars.HARBOR_HOST }}
+      HARBOR_USER: ${{ secrets.HARBOR_USER }}
+      HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Copier images et signatures vers Harbor
+        run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo "$HARBOR_PASSWORD" | skopeo login --tls-verify=false -u "$HARBOR_USER" --password-stdin "$HARBOR_HOST"
+          for svc in api frontend; do
+            SRC="ghcr.io/${OWNER}/devsecops-portfolio/${svc}"
+            DST="${HARBOR_HOST}/devsecops/${svc}"
+            skopeo copy --all --preserve-digests --dest-tls-verify=false "docker://${SRC}:${HEAD_SHA}" "docker://${DST}:${HEAD_SHA}"
+            DIGEST=$(skopeo inspect --raw "docker://${SRC}:${HEAD_SHA}" | sha256sum | cut -d' ' -f1)
+            skopeo copy --preserve-digests --dest-tls-verify=false "docker://${SRC}:sha256-${DIGEST}.sig" "docker://${DST}:sha256-${DIGEST}.sig" || echo "signature non copiée pour ${svc}"
+            echo "Publié : ${DST}:${HEAD_SHA}"
+          done
