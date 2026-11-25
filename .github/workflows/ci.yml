@@ -10,6 +10,7 @@ permissions:
   contents: read
 
 jobs:
+  # ... (jobs api-test, frontend-test, security-scan restent identiques) ...
   api-test:
     runs-on: ubuntu-latest
     defaults:
@@ -75,28 +76,26 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-
       - name: Gitleaks (CLI)
         run: |
           curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz
           ./gitleaks detect --source . --no-banner --redact --verbose
-
       - name: Semgrep (CLI)
         run: |
           pip install semgrep
           semgrep scan --config p/security-audit --config p/owasp-top-ten --error
-
       - name: npm audit
         run: |
           cd portfolio/api && npm audit --audit-level=high
           cd ../frontend && npm audit --audit-level=high
 
-  docker-build-scan:
+  build-sign-scan:
     needs: [api-test, frontend-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
+      id-token: write # Nécessaire pour Cosign keyless
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       
@@ -105,7 +104,42 @@ jobs:
       
       - name: Build Frontend image
         run: docker build -t portfolio-frontend:${{ github.sha }} portfolio/frontend
-      
+
+      # --- Q96, Q97 : SBOM avec Syft ---
+      - name: Generate SBOM API (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          image: portfolio-api:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom-api.spdx.json
+
+      - name: Generate SBOM Frontend (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          image: portfolio-frontend:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom-frontend.spdx.json
+
+      - name: Upload SBOM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-artifacts
+          path: |
+            sbom-api.spdx.json
+            sbom-frontend.spdx.json
+
+      # --- Q99 : Signature avec Cosign ---
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign API image
+        run: |
+          cosign sign --yes portfolio-api:${{ github.sha }}
+          cosign sign --yes portfolio-frontend:${{ github.sha }}
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+      # --- Q73 : Scan Trivy ---
       - name: Install Trivy
         run: |
           wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz | tar -xzv -C /usr/local/bin trivy
