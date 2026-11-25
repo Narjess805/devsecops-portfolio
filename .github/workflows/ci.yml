@@ -10,7 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  # ... (jobs api-test, frontend-test, security-scan restent identiques) ...
   api-test:
     runs-on: ubuntu-latest
     defaults:
@@ -95,28 +94,40 @@ jobs:
     permissions:
       contents: read
       security-events: write
-      id-token: write # Nécessaire pour Cosign keyless
+      id-token: write
+      packages: write # Nécessaire pour GHCR
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      
-      - name: Build API image
-        run: docker build -t portfolio-api:${{ github.sha }} portfolio/api
-      
-      - name: Build Frontend image
-        run: docker build -t portfolio-frontend:${{ github.sha }} portfolio/frontend
 
-      # --- Q96, Q97 : SBOM avec Syft ---
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build API image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/api:${{ github.sha }} portfolio/api
+          docker push ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+
+      - name: Build Frontend image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/frontend:${{ github.sha }} portfolio/frontend
+          docker push ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
+
+      # --- SBOM avec Syft ---
       - name: Generate SBOM API (Syft)
         uses: anchore/sbom-action@v0
         with:
-          image: portfolio-api:${{ github.sha }}
+          image: ghcr.io/${{ github.repository }}/api:${{ github.sha }}
           format: spdx-json
           output-file: sbom-api.spdx.json
 
       - name: Generate SBOM Frontend (Syft)
         uses: anchore/sbom-action@v0
         with:
-          image: portfolio-frontend:${{ github.sha }}
+          image: ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
           format: spdx-json
           output-file: sbom-frontend.spdx.json
 
@@ -128,29 +139,29 @@ jobs:
             sbom-api.spdx.json
             sbom-frontend.spdx.json
 
-      # --- Q99 : Signature avec Cosign ---
+      # --- Signature avec Cosign ---
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
       - name: Sign API image
         run: |
-          cosign sign --yes portfolio-api:${{ github.sha }}
-          cosign sign --yes portfolio-frontend:${{ github.sha }}
+          cosign sign --yes ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+          cosign sign --yes ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
         env:
           COSIGN_EXPERIMENTAL: 1
 
-      # --- Q73 : Scan Trivy ---
+      # --- Scan Trivy ---
       - name: Install Trivy
         run: |
           wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz | tar -xzv -C /usr/local/bin trivy
       
       - name: Trivy scan API
         run: |
-          trivy image --format sarif --output trivy-api.sarif --severity CRITICAL,HIGH --exit-code 0 portfolio-api:${{ github.sha }}
+          trivy image --format sarif --output trivy-api.sarif --severity CRITICAL,HIGH --exit-code 0 ghcr.io/${{ github.repository }}/api:${{ github.sha }}
       
       - name: Trivy scan Frontend
         run: |
-          trivy image --format sarif --output trivy-frontend.sarif --severity CRITICAL,HIGH --exit-code 0 portfolio-frontend:${{ github.sha }}
+          trivy image --format sarif --output trivy-frontend.sarif --severity CRITICAL,HIGH --exit-code 0 ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
       
       - name: Upload Trivy API results
         if: always()
