@@ -96,11 +96,12 @@ jobs:
       security-events: write
       id-token: write
       packages: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Log in to GHCR
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # nosemgrep
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -119,21 +120,21 @@ jobs:
           docker push $IMAGE_NAME
 
       - name: Generate SBOM API (Syft)
-        uses: anchore/sbom-action@v0 # nosemgrep
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: ghcr.io/narjess805/devsecops-portfolio/api:${{ github.sha }}
           format: spdx-json
           output-file: sbom-api.spdx.json
 
       - name: Generate SBOM Frontend (Syft)
-        uses: anchore/sbom-action@v0 # nosemgrep
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: ghcr.io/narjess805/devsecops-portfolio/frontend:${{ github.sha }}
           format: spdx-json
           output-file: sbom-frontend.spdx.json
 
       - name: Upload SBOM Artifacts
-        uses: actions/upload-artifact@v4 # nosemgrep
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom-artifacts
           path: |
@@ -141,14 +142,31 @@ jobs:
             sbom-frontend.spdx.json
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3 # nosemgrep
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
-      - name: Sign API image
+      - name: Sign images (by digest)
+        id: sign
         run: |
-          cosign sign --yes ghcr.io/narjess805/devsecops-portfolio/api:${{ github.sha }}
-          cosign sign --yes ghcr.io/narjess805/devsecops-portfolio/frontend:${{ github.sha }}
-        env:
-          COSIGN_EXPERIMENTAL: 1
+          for svc in api frontend; do
+            REF="ghcr.io/narjess805/devsecops-portfolio/${svc}:${{ github.sha }}"
+            DIGEST=$(docker buildx imagetools inspect "$REF" --format '{{json .Manifest.Digest}}' | tr -d '"')
+            cosign sign --yes "ghcr.io/narjess805/devsecops-portfolio/${svc}@${DIGEST}"
+            echo "${svc}_digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Attest build provenance (API)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-name: ghcr.io/narjess805/devsecops-portfolio/api
+          subject-digest: ${{ steps.sign.outputs.api_digest }}
+          push-to-registry: true
+
+      - name: Attest build provenance (Frontend)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-name: ghcr.io/narjess805/devsecops-portfolio/frontend
+          subject-digest: ${{ steps.sign.outputs.frontend_digest }}
+          push-to-registry: true
 
       - name: Install Trivy
         run: |
