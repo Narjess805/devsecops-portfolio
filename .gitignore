@@ -26,3 +26,5 @@ private_key
 .env
 .env.*
 !.env.example
+actions-runner/
+*.tar.gz
