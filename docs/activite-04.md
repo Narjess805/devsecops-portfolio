@@ -400,7 +400,6 @@ Le pipeline échoue si un secret est détecté ou si une vulnérabilité critiqu
 - Contrôle d'accès par rôle (API5)
 - Limitation par utilisateur en plus de la limitation par adresse IP
 - HTTPS avec un reverse proxy devant le Portfolio et l'API
-# test
 # Test release
 # test
 # Test release
