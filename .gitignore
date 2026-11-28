@@ -28,3 +28,9 @@ private_key
 !.env.example
 actions-runner/
 *.tar.gz
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+crash.log
